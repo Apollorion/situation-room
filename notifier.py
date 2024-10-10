@@ -6,6 +6,11 @@ groups = helpers.get_groups()
 posts = helpers.get_posts()
 last_update = helpers.get_last_update()
 
+def update_message(post, key, title, _message):
+    if post[key] is not None:
+        _message += f"{title}: {post[key]}\n"
+    return _message
+
 for post in posts:
     if post["url"] == last_update:
         break
@@ -22,13 +27,22 @@ for post in posts:
 
     print(f"notification groups: {notification_groups}")
 
+    title = f"{home} vs {away}: {post['type']}"
+
+    message = update_message(post, "short_description", "Short Description", "")
+    message = update_message(post, "challenge_initiator", "Challenge Initiated By", message)
+    message = update_message(post, "type_of_challenge", "Type of Challenge", message)
+    message = update_message(post, "result", "Result", message)
+    message = update_message(post, "explanation", "Explanation", message)
+    message = update_message(post, "penalty", "Penalty", message)
+
     for group in notification_groups:
         print(f"Sending notification to {group}")
         r = requests.post("https://api.pushover.net/1/messages.json", data={
             "token": os.environ["PUSHOVER_APPLICATION_TOKEN"],
             "user": group,
-            "title": post["type"],
-            "message": f"{post['short_description']} - {post['explanation']}",
+            "title": title,
+            "message": message,
         })
         print("Begin Response")
         print(r.json())
