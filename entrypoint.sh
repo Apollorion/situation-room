@@ -8,7 +8,7 @@ echo "Flask Server Started!"
 
 while true; do
   echo "Getting Posts..."
-  #python get_posts.py
+  python get_posts.py
   sleep 60
   echo "Notifying Users..."
   python notifier.py

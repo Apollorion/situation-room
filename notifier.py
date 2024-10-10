@@ -15,6 +15,8 @@ for post in posts:
 
     notification_groups = [groups[helpers.group_to_team[home]], groups[helpers.group_to_team[away]]]
 
+    print(f"Post Processing For Teams: {home} {away}, notification groups: {notification_groups}")
+
     for group in notification_groups:
         print(f"Sending notification to {group}")
         r = requests.post("https://api.pushover.net/1/messages.json", data={
@@ -23,7 +25,9 @@ for post in posts:
             "title": post["type"],
             "message": f"{post['short_description']} - {post['explanation']}",
         })
+        print("Begin Response")
         print(r.json())
+        print("End Response")
 
 helpers.write_last_update(posts[0]["url"])
 print("Complete!")

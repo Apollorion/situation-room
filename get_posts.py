@@ -89,6 +89,7 @@ class Post:
         return transfigure(self.post_text.split("Penalty: ")[1].split("\n")[0])
 
     def dumps(self):
+        print(f"Dumping {self.url}")
         return json.dumps({
             "type": self.get_type(),
             "home": self.get_home(),
@@ -132,6 +133,7 @@ def get_posts():
 
 posts = get_posts()
 # Write the posts to a file
+print("Writing posts to file...")
 with open("storage/posts.json", "w") as f:
     f.write("[\n")
     for i, post in enumerate(posts):
@@ -139,3 +141,4 @@ with open("storage/posts.json", "w") as f:
         if i != len(posts) - 1:
             f.write(",\n")
     f.write("\n]")
+print("Complete!")
