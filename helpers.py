@@ -49,5 +49,8 @@ group_to_team = {
     "VAN": "Vancouver Canucks",
     "VGK": "Vegas Golden Knights",
     "WPG": "Winnipeg Jets",
-    "WSH": "Washington Capitals"
+    "WSH": "Washington Capitals",
+
+    #Defunct
+    "ARI": "Utah Hockey Club"
 }
