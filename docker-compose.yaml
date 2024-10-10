@@ -5,6 +5,8 @@ services:
       - "5001:5000"
     volumes:
         - json_storage:/app/storage
+    environment:
+        PUSHOVER_APPLICATION_TOKEN: ${PUSHOVER_APPLICATION_TOKEN}
 volumes:
   json_storage:
     driver: local
