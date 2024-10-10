@@ -8,7 +8,7 @@ last_update = helpers.get_last_update()
 
 def update_message(post, key, title, _message):
     if post[key] is not None:
-        _message += f"{title}: {post[key]}\n"
+        _message += f"<b>{title}</b>: {post[key]}\n"
     return _message
 
 for post in posts:
@@ -29,9 +29,9 @@ for post in posts:
 
     title = f"{home} vs {away}: {post['type']}"
 
-    message = update_message(post, "short_description", "Short Description", "")
-    message = update_message(post, "challenge_initiator", "Challenge Initiated By", message)
-    message = update_message(post, "type_of_challenge", "Type of Challenge", message)
+    message = update_message(post, "short_description", "Desc", "")
+    message = update_message(post, "challenge_initiator", "Initiated By", message)
+    message = update_message(post, "type_of_challenge", "Challenge Type", message)
     message = update_message(post, "result", "Result", message)
     message = update_message(post, "explanation", "Explanation", message)
     message = update_message(post, "penalty", "Penalty", message)
@@ -43,6 +43,7 @@ for post in posts:
             "user": group,
             "title": title,
             "message": message,
+            "ttl": 3600
         })
         print("Begin Response")
         print(r.json())
