@@ -43,7 +43,8 @@ for post in posts:
             "user": group,
             "title": title,
             "message": message,
-            "ttl": 3600
+            "ttl": 3600,
+            "html": 1
         })
         print("Begin Response")
         print(r.json())
