@@ -10,12 +10,17 @@ for post in posts:
     if post["url"] == last_update:
         break
 
+    print()
+    print()
+    print()
     home = post["home"]
     away = post["away"]
 
+    print("Teams: ", home, away)
+
     notification_groups = [groups[helpers.group_to_team[home]], groups[helpers.group_to_team[away]]]
 
-    print(f"Post Processing For Teams: {home} {away}, notification groups: {notification_groups}")
+    print(f"notification groups: {notification_groups}")
 
     for group in notification_groups:
         print(f"Sending notification to {group}")
@@ -30,4 +35,7 @@ for post in posts:
         print("End Response")
 
 helpers.write_last_update(posts[0]["url"])
+print()
+print()
+print()
 print("Complete!")
