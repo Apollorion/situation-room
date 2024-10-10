@@ -1,0 +1,4 @@
+storage/groups.json
+storage/posts.json
+storage/web.log
+__pycache__/**
