@@ -13,6 +13,7 @@ def update_message(post, key, title, _message):
 
 for post in posts:
     if post["url"] == last_update:
+        print("Last update found, breaking", post["url"])
         break
 
     print()
@@ -43,7 +44,7 @@ for post in posts:
             "user": group,
             "title": title,
             "message": message,
-            "ttl": 3600,
+            "ttl": 86400,
             "html": 1
         })
         print("Begin Response")
