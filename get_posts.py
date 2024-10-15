@@ -122,7 +122,9 @@ def soupify(url):
 # Get the posts from https://www.nhl.com/news/topic/situation-room/
 def get_posts():
     date_time_string = datetime.now().strftime("%d-%m-%YT%H-%M-%S")
-    soup = soupify(f"{base_url}/news/topic/situation-room/?date_cache_busting={date_time_string}")
+    url = f"{base_url}/news/topic/situation-room/?date_cache_busting={date_time_string}"
+    print(f"Getting all posts from: {url}")
+    soup = soupify(url)
     posts = soup.find_all('div', {'class': 'd3-l-col__col-3'})
 
     classed_posts = []
