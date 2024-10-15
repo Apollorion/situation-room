@@ -10,6 +10,7 @@ class Post:
         self.url = transfigure(url)
 
         self.post_text = None
+        print(f"Classed Post: {url}")
 
     def get_text(self):
         return transfigure(self.text)
