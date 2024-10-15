@@ -1,6 +1,7 @@
 import bs4
 import requests
 import json
+from datetime import datetime
 
 base_url = "https://www.nhl.com"
 
@@ -120,7 +121,8 @@ def soupify(url):
 
 # Get the posts from https://www.nhl.com/news/topic/situation-room/
 def get_posts():
-    soup = soupify(f"{base_url}/news/topic/situation-room/")
+    date_time_string = datetime.now().strftime("%d-%m-%YT%H-%M-%S")
+    soup = soupify(f"{base_url}/news/topic/situation-room/?date_cache_busting={date_time_string}")
     posts = soup.find_all('div', {'class': 'd3-l-col__col-3'})
 
     classed_posts = []
