@@ -80,6 +80,9 @@ def subscribe_choose_team():
     form = f"""
     <form action="/subscribe-final?pushover_user_key={user_id}" method="post">
     {team_selection_html}
+    <br/>
+    <input type="text" name="name" maxlength="50" placeholder="Your Name" required>
+    <br/><br/>
     <input type="submit" value="Finalize Subscription">
     </form>
     """
@@ -102,6 +105,7 @@ def subscribe_final():
     user_id = request.args.get("pushover_user_key")
 
     teams = request.form.getlist("team[]")
+    name = request.form.get("name")
     groups = helpers.get_groups()
 
     for team in teams:
@@ -109,6 +113,7 @@ def subscribe_final():
         r = requests.post(f"https://api.pushover.net/1/groups/{groups[team_group_key]}/add_user.json", data={
             "token": os.environ["PUSHOVER_APPLICATION_TOKEN"],
             "user": user_id,
+            "memo": name
         })
         print(r.json())
 
@@ -116,4 +121,4 @@ def subscribe_final():
 
 @app.route("/subscribe-fail")
 def subscribe_fail():
-    return "There was an error subscribing to The Situation Room."
+    return "There was an error subscribing to The Situation Room. You can email me if this was a mistake: joey@apollorion.com"
