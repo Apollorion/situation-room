@@ -150,8 +150,12 @@ def get_posts():
     return classed_posts
 
 posts = get_posts()
-# Write the posts to a file
-print("Writing posts to file...")
-with open("storage/posts.json", "w") as f:
-    f.write(json.dumps(posts, indent=4))
+
+if len(posts) > 0:
+    # Write the posts to a file
+    print("Writing posts to file...")
+    with open("storage/posts.json", "w") as f:
+        f.write(json.dumps(posts, indent=4))
+else:
+    print("No new posts found.")
 print("Complete!")
