@@ -81,7 +81,7 @@ def subscribe_choose_team():
     <form action="/subscribe-final?pushover_user_key={user_id}" method="post">
     {team_selection_html}
     <br/>
-    <input type="text" name="name" maxlength="50" placeholder="Your Name" required>
+    <input type="email" name="email" maxlength="100" placeholder="Your email address" required>
     <br/><br/>
     <input type="submit" value="Finalize Subscription">
     </form>
@@ -105,7 +105,7 @@ def subscribe_final():
     user_id = request.args.get("pushover_user_key")
 
     teams = request.form.getlist("team[]")
-    name = request.form.get("name")
+    email = request.form.get("email")
     groups = helpers.get_groups()
 
     for team in teams:
@@ -113,7 +113,7 @@ def subscribe_final():
         r = requests.post(f"https://api.pushover.net/1/groups/{groups[team_group_key]}/add_user.json", data={
             "token": os.environ["PUSHOVER_APPLICATION_TOKEN"],
             "user": user_id,
-            "memo": name
+            "memo": email
         })
         print(r.json())
 
