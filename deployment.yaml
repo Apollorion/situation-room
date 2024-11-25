@@ -24,6 +24,7 @@ spec:
           volumeMounts:
             - mountPath: /app/storage
               name: groups
+              readOnly: false
           env:
             - name: PUSHOVER_APPLICATION_TOKEN
               valueFrom:
