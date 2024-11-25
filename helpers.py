@@ -5,7 +5,7 @@ def read_json_from_disk(file_name):
         return json.load(f)
 
 def get_groups():
-    return read_json_from_disk('storage/groups.json')
+    return read_json_from_disk('storage/mounted/groups.json')
 
 def get_posts():
     return read_json_from_disk('storage/posts.json')

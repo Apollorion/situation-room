@@ -22,7 +22,7 @@ spec:
         - name: situationroom
           image: <IMAGE>
           volumeMounts:
-            - mountPath: /app/storage
+            - mountPath: /app/storage/mounted
               name: groups
               readOnly: false
           env:
