@@ -3,6 +3,8 @@ import requests
 import json
 from datetime import datetime
 
+import helpers
+
 base_url = "https://www.nhl.com"
 
 class Post:
@@ -133,6 +135,11 @@ def get_posts():
     for post in posts:
         title = post.find('h3').text
         url = post.find('a')['href']
+
+        last_update = helpers.get_last_update()
+        if url == last_update:
+            print("Last update found, breaking", url)
+            break
 
         try:
             p = Post(title, url)
