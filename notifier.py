@@ -12,6 +12,10 @@ def update_message(post, key, title, _message):
     return _message
 
 for post in posts:
+    if last_update == "NEVER_UPDATED":
+        print("Never notified, stopping to not spam people.")
+        break
+
     if post["url"] == last_update:
         print("Last update found, breaking", post["url"])
         break
