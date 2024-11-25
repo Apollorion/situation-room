@@ -11,7 +11,6 @@ class Post:
         self.url = transfigure(url)
 
         self.post_text = None
-        print(f"Classed Post: {url}")
 
     def get_text(self):
         return transfigure(self.text)
@@ -23,6 +22,9 @@ class Post:
         return transfigure(self.text.split(": ")[1].split(" @ ")[0])
 
     def get_away(self):
+
+        self.text.split(": ")[1].split(" @ ")[1].split("-")[0]
+
         return transfigure(self.text.split(": ")[1].split(" @ ")[1].split("-")[0])
 
     def get_short_description(self):
@@ -92,7 +94,7 @@ class Post:
 
     def dumps(self):
         print(f"Dumping {self.url}")
-        return json.dumps({
+        return {
             "type": self.get_type(),
             "home": self.get_home(),
             "away": self.get_away(),
@@ -103,7 +105,7 @@ class Post:
             "result": self.get_result(),
             "explanation": self.get_explination(),
             "penalty": self.get_penalty()
-        })
+        }
 
 def transfigure(text):
     return (text
@@ -132,7 +134,11 @@ def get_posts():
         title = post.find('h3').text
         url = post.find('a')['href']
 
-        classed_posts.append(Post(title, url))
+        try:
+            p = Post(title, url)
+            classed_posts.append(p.dumps())
+        except Exception as e:
+            print(f"Error safely continuing: {e}")
 
     return classed_posts
 
@@ -140,10 +146,5 @@ posts = get_posts()
 # Write the posts to a file
 print("Writing posts to file...")
 with open("storage/posts.json", "w") as f:
-    f.write("[\n")
-    for i, post in enumerate(posts):
-        f.write(post.dumps())
-        if i != len(posts) - 1:
-            f.write(",\n")
-    f.write("\n]")
+    f.write(json.dumps(posts, indent=4))
 print("Complete!")

@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: situationroom
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: situationroom
+  namespace: situationroom
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: situationroom
+  template:
+    metadata:
+      labels:
+        app: situationroom
+    spec:
+      containers:
+        - name: situationroom
+          image: <IMAGE>
+          volumeMounts:
+            - mountPath: /app/storage
+              name: groups
+          env:
+            - name: PUSHOVER_APPLICATION_TOKEN
+              valueFrom:
+                  secretKeyRef:
+                    name: pushover
+                    key: PUSHOVER_APPLICATION_TOKEN
+          ports:
+            - containerPort: 5000
+      volumes:
+        - name: groups
+          secret:
+            secretName: groups
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: situationroom
+  namespace: situationroom
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      protocol: TCP
+      port: 5000
+      targetPort: 5000
+  selector:
+    app: situationroom
