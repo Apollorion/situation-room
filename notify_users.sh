@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "Waiting 5 minutes for the posts to get gotten..."
-sleep 300
+echo "Waiting 2 minutes for the posts to get gotten..."
+sleep 120
 
 while true; do
   echo "Notifying Users..."
