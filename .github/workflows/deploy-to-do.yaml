@@ -1,4 +1,5 @@
 on:
+  pull_request:
   push:
     branches:
       - main
@@ -8,7 +9,19 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r requirements.txt pytest
+      - run: python -m pytest -q
+
   build:
+    needs: test
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout master
@@ -29,31 +42,8 @@ jobs:
         with:
           platforms: linux/arm64
           push: true
-          tags: ghcr.io/theoutdoorprogrammer/situationroom:latest
-
-      - name: Build and push SHA-tagged image
-        uses: docker/build-push-action@v6
-        with:
-          platforms: linux/arm64
-          push: true
-          tags: ghcr.io/theoutdoorprogrammer/situationroom:${{ github.sha }}
-
-      - name: Checkout flux repository
-        uses: actions/checkout@v4
-        with:
-          repository: theoutdoorprogrammer/flux
-          ssh-key: ${{ secrets.FLUX_DEPLOY_KEY }}
-          path: flux-repo
-
-      - name: Update deployment file in flux repo
-        run: |
-          sed -i 's|image: .*|image: ghcr.io/theoutdoorprogrammer/situationroom:${{ github.sha }}|' flux-repo/clusters/home/situationroom/deployment.yaml
-
-      - name: Commit and push changes to flux repo
-        run: |
-          cd flux-repo
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add clusters/home/situationroom/deployment.yaml
-          git commit -m "Update situationroom image to ${{ github.sha }}" || exit 0
-          git push
+          tags: |
+            ghcr.io/theoutdoorprogrammer/situationroom:latest
+            ghcr.io/theoutdoorprogrammer/situationroom:${{ github.sha }}
+          provenance: mode=max
+          sbom: true

@@ -1,9 +1,9 @@
-import requests
 import os
-import helpers
 
-# OpenTelemetry imports
+import requests
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
+import helpers
 import otel_config
 
 # Initialize OpenTelemetry
@@ -31,30 +31,27 @@ with tracer.start_as_current_span("notifier.process_posts") as root_span:
 
     for post in posts:
         if last_update == "NEVER_UPDATED":
-            print("Never notified, stopping to not spam people.")
+            otel_config.logger.info("notification cursor not initialized")
             break
 
         if post["url"] == last_update:
-            print("Last update found, breaking", post["url"])
+            otel_config.logger.info("notification cursor reached")
             break
 
         with tracer.start_as_current_span("notifier.process_post") as post_span:
             post_span.set_attribute("post.url", post["url"])
             post_span.set_attribute("post.type", post["type"])
 
-            print()
-            print()
-            print()
             home = post["home"]
             away = post["away"]
 
-            print("Teams: ", home, away)
+            otel_config.logger.info("processing notification")
             post_span.set_attribute("post.home_team", home)
             post_span.set_attribute("post.away_team", away)
 
             notification_groups = [groups[helpers.group_to_team[home]], groups[helpers.group_to_team[away]]]
 
-            print(f"notification groups: {notification_groups}")
+            otel_config.logger.info("notification groups selected", extra={"count": len(notification_groups)})
 
             title = f"{home} vs {away}: {post['type']}"
 
@@ -67,10 +64,8 @@ with tracer.start_as_current_span("notifier.process_posts") as root_span:
 
             for group in notification_groups:
                 with tracer.start_as_current_span("notifier.send_notification") as notify_span:
-                    notify_span.set_attribute("notification.group", group)
-                    notify_span.set_attribute("notification.title", title)
 
-                    print(f"Sending notification to {group}")
+                    otel_config.logger.info("sending notification")
                     r = requests.post("https://api.pushover.net/1/messages.json", data={
                         "token": os.environ["PUSHOVER_APPLICATION_TOKEN"],
                         "user": group,
@@ -78,18 +73,14 @@ with tracer.start_as_current_span("notifier.process_posts") as root_span:
                         "message": message,
                         "ttl": 86400,
                         "html": 1
-                    })
+                    }, timeout=30)
                     notify_span.set_attribute("http.status_code", r.status_code)
+                    otel_config.require_success(r)
                     notifications_sent += 1
 
-                    print("Begin Response")
-                    print(r.json())
-                    print("End Response")
+                    otel_config.logger.info("notification delivered")
 
     root_span.set_attribute("notifier.notifications_sent", notifications_sent)
 
 helpers.write_last_update(posts[0]["url"])
-print()
-print()
-print()
-print("Complete!")
+otel_config.logger.info("notification job completed")

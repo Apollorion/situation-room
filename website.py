@@ -1,12 +1,11 @@
-from flask import Flask, redirect
-from flask import request
-import requests
-import helpers
 import os
 
-# OpenTelemetry imports
+import requests
+from flask import Flask, redirect, request
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
+import helpers
 import otel_config
 
 # Initialize OpenTelemetry
@@ -131,8 +130,9 @@ def subscribe_final():
             "token": os.environ["PUSHOVER_APPLICATION_TOKEN"],
             "user": user_id,
             "memo": email
-        })
-        print(r.json())
+        }, timeout=30)
+        otel_config.require_success(r)
+        otel_config.logger.info("subscription updated")
 
     return redirect('/?success=true')
 
