@@ -1,12 +1,11 @@
+import json
+from datetime import UTC, datetime
+
 import bs4
 import requests
-import json
-from datetime import datetime
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 import helpers
-
-# OpenTelemetry imports
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
 import otel_config
 
 # Initialize OpenTelemetry
@@ -111,7 +110,7 @@ class Post:
         return transfigure(self.post_text.split("Penalty: ")[1].split("\n")[0])
 
     def dumps(self):
-        print(f"Dumping {self.url}")
+        otel_config.logger.info("parsing post")
         return {
             "type": self.get_type(),
             "home": self.get_home(),
@@ -138,7 +137,8 @@ def transfigure(text):
 def soupify(url):
     with tracer.start_as_current_span("html.parse") as span:
         span.set_attribute("http.url", url)
-        r = requests.get(url)
+        r = requests.get(url, timeout=30)
+        r.raise_for_status()
         span.set_attribute("http.status_code", r.status_code)
         span.set_attribute("http.response_size", len(r.content))
         return bs4.BeautifulSoup(r.content, 'html.parser', from_encoding="utf-8")
@@ -146,9 +146,9 @@ def soupify(url):
 # Get the posts from https://www.nhl.com/news/topic/situation-room/
 def get_posts():
     with tracer.start_as_current_span("scraper.get_posts") as span:
-        date_time_string = datetime.now().strftime("%d-%m-%YT%H-%M-%S")
+        date_time_string = datetime.now(UTC).strftime("%d-%m-%YT%H-%M-%S")
         url = f"{base_url}/news/topic/situation-room/?date_cache_busting={date_time_string}"
-        print(f"Getting all posts from: {url}")
+        otel_config.logger.info("fetching posts")
         span.set_attribute("scraper.url", url)
 
         soup = soupify(url)
@@ -162,15 +162,14 @@ def get_posts():
 
             last_update = helpers.get_last_update()
             if url == last_update:
-                print("Last update found, breaking", url)
+                otel_config.logger.info("scraper cursor reached")
                 break
 
             try:
                 p = Post(title, url)
                 classed_posts.append(p.dumps())
             except Exception as e:
-                print(f"Error safely continuing: {e}")
-                span.add_event("post.processing_error", {"error": str(e), "url": url})
+                otel_config.record_failure(span, e)
 
         span.set_attribute("scraper.new_posts", len(classed_posts))
         return classed_posts
@@ -179,9 +178,9 @@ posts = get_posts()
 
 if len(posts) > 0:
     # Write the posts to a file
-    print("Writing posts to file...")
-    with open("storage/posts.json", "w") as f:
+    otel_config.logger.info("writing posts")
+    with tracer.start_as_current_span("scraper.write_posts"), open("storage/posts.json", "w") as f:
         f.write(json.dumps(posts, indent=4))
 else:
-    print("No new posts found.")
-print("Complete!")
+    otel_config.logger.info("no new posts")
+otel_config.logger.info("scraper completed")

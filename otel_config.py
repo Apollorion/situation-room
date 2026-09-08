@@ -1,97 +1,121 @@
-"""
-OpenTelemetry configuration and initialization module.
-
-This module handles all OpenTelemetry setup including:
-- Tracer provider initialization
-- OTLP exporter configuration
-- Auto-instrumentation setup
-- Environment-based configuration
-"""
-
+import json
+import logging
 import os
+import signal
+import sys
+
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as GRPCExporter
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter as HTTPExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+    OTLPSpanExporter as GRPCExporter,
+)
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+    OTLPSpanExporter as HTTPExporter,
+)
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import Event, ReadableSpan, TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
+from opentelemetry.trace import Status, StatusCode
+
+logger = logging.getLogger("situation-room")
+SAFE_ATTRIBUTES = {
+    "http.route", "http.request.method", "http.method", "http.response.status_code",
+    "http.status_code", "network.protocol.version", "error.type",
+    "scraper.posts_found", "scraper.new_posts", "notifier.total_posts",
+    "notifier.notifications_sent", "http.response_size", "file.size_bytes",
+}
 
 
-def init_telemetry(service_name: str, service_version: str = "1.0.0") -> trace.Tracer:
-    """
-    Initialize OpenTelemetry tracing for the application.
+class SafeSpanExporter(SpanExporter):
+    def __init__(self, exporter):
+        self.exporter = exporter
 
-    Configuration via environment variables:
-    - OTEL_EXPORTER_OTLP_ENDPOINT: OTLP collector endpoint (default: http://localhost:4318)
-    - OTEL_EXPORTER_OTLP_PROTOCOL: Protocol to use - 'grpc' or 'http' (default: http)
-    - OTEL_TRACES_ENABLED: Enable/disable tracing (default: true)
-    - OTEL_CONSOLE_EXPORTER: Also export to console for debugging (default: false)
+    def export(self, spans):
+        safe = []
+        for span in spans:
+            events = [
+                Event("exception", attributes={"exception.type": event.attributes["exception.type"]}, timestamp=event.timestamp)
+                for event in span.events
+                if event.name == "exception" and "exception.type" in event.attributes
+            ]
+            safe.append(ReadableSpan(
+                name=span.name, context=span.context, parent=span.parent,
+                resource=span.resource, kind=span.kind,
+                attributes={key: value for key, value in span.attributes.items() if key in SAFE_ATTRIBUTES},
+                events=events, links=(), status=Status(span.status.status_code),
+                start_time=span.start_time, end_time=span.end_time,
+                instrumentation_scope=span.instrumentation_scope,
+            ))
+        return self.exporter.export(safe)
 
-    Args:
-        service_name: Name of the service being instrumented
-        service_version: Version of the service
+    def shutdown(self):
+        self.exporter.shutdown()
 
-    Returns:
-        Configured tracer instance
-    """
-    traces_enabled = os.getenv("OTEL_TRACES_ENABLED", "true").lower() == "true"
+    def force_flush(self, timeout_millis=30000):
+        return self.exporter.force_flush(timeout_millis)
 
-    if not traces_enabled:
-        print(f"[OTEL] Tracing disabled for {service_name}")
-        trace.set_tracer_provider(TracerProvider(resource=Resource.create({SERVICE_NAME: service_name})))
-        return trace.get_tracer(__name__)
 
-    # Configure resource attributes
+class SafeJSONFormatter(logging.Formatter):
+    def format(self, record):
+        payload = {"level": record.levelname, "service": "situation-room"}
+        payload["message"] = record.getMessage() if record.name == "situation-room" else "library event"
+        if record.exc_info and record.exc_info[0]:
+            payload["error_type"] = record.exc_info[0].__name__
+        for field in ("error_type", "status_code", "count"):
+            if hasattr(record, field):
+                payload[field] = getattr(record, field)
+        context = trace.get_current_span().get_span_context()
+        if context.is_valid:
+            payload["trace_id"] = format(context.trace_id, "032x")
+            payload["span_id"] = format(context.span_id, "016x")
+        return json.dumps(payload)
+
+
+def init_telemetry(service_name, service_version="1.0.0"):
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(SafeJSONFormatter())
+    logging.basicConfig(level=logging.INFO, handlers=[handler], force=True)
+    sys.excepthook = lambda kind, value, traceback: logger.error("process failed", exc_info=(kind, value, traceback))
+    signal.signal(signal.SIGTERM, lambda _signal, _frame: sys.exit(0))
     resource = Resource.create({
-        SERVICE_NAME: service_name,
-        SERVICE_VERSION: service_version,
-        "deployment.environment": os.getenv("ENVIRONMENT", "development"),
+        "service.name": service_name,
+        "service.version": os.getenv("SERVICE_VERSION", service_version),
+        "deployment.environment.name": os.getenv("ENVIRONMENT", "development"),
     })
-
-    # Create tracer provider
     provider = TracerProvider(resource=resource)
-
-    # Configure OTLP exporter
-    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
-    otlp_protocol = os.getenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http").lower()
-
-    try:
-        if otlp_protocol == "http":
-            # HTTP exporter expects endpoints with /v1/traces path
-            if not otlp_endpoint.endswith("/v1/traces"):
-                otlp_endpoint = f"{otlp_endpoint.rstrip('/')}/v1/traces"
-            exporter = HTTPExporter(endpoint=otlp_endpoint)
-            print(f"[OTEL] Using HTTP OTLP exporter: {otlp_endpoint}")
-        else:
-            exporter = GRPCExporter(endpoint=otlp_endpoint)
-            print(f"[OTEL] Using gRPC OTLP exporter: {otlp_endpoint}")
-
-        provider.add_span_processor(BatchSpanProcessor(exporter))
-    except Exception as e:
-        print(f"[OTEL] Warning: Failed to configure OTLP exporter: {e}")
-        print(f"[OTEL] Traces will not be exported. Check OTEL_EXPORTER_OTLP_ENDPOINT configuration.")
-
-    # Optionally add console exporter for debugging
-    if os.getenv("OTEL_CONSOLE_EXPORTER", "false").lower() == "true":
-        provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
-        print(f"[OTEL] Console exporter enabled")
-
-    # Set global tracer provider
+    if os.getenv("OTEL_TRACES_ENABLED", "true").lower() == "true":
+        endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+        protocol = os.getenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf").lower()
+        try:
+            if protocol in ("http", "http/protobuf"):
+                endpoint = endpoint.rstrip("/")
+                if not endpoint.endswith("/v1/traces"):
+                    endpoint += "/v1/traces"
+                exporter = HTTPExporter(endpoint=endpoint, timeout=5)
+            elif protocol == "grpc":
+                exporter = GRPCExporter(endpoint=endpoint, timeout=5)
+            else:
+                raise ValueError("unsupported telemetry protocol")
+            provider.add_span_processor(BatchSpanProcessor(SafeSpanExporter(exporter)))
+        except Exception:
+            logger.exception("telemetry initialization failed")
+            raise
     trace.set_tracer_provider(provider)
-
-    print(f"[OTEL] Tracing initialized for {service_name} v{service_version}")
-
-    return trace.get_tracer(__name__)
+    logger.info("telemetry initialized")
+    return trace.get_tracer(service_name)
 
 
-def get_tracer(name: str) -> trace.Tracer:
-    """
-    Get a tracer instance for creating manual spans.
-
-    Args:
-        name: Name for the tracer (typically __name__ of the calling module)
-
-    Returns:
-        Tracer instance
-    """
+def get_tracer(name):
     return trace.get_tracer(name)
+
+
+def record_failure(span, error):
+    span.set_status(Status(StatusCode.ERROR))
+    span.set_attribute("error.type", type(error).__name__)
+    span.add_event("exception", {"exception.type": type(error).__name__})
+    logger.error("operation failed", extra={"error_type": type(error).__name__})
+
+
+def require_success(response):
+    response.raise_for_status()
+    if response.json().get("status") != 1:
+        raise RuntimeError("notification provider rejected operation")
