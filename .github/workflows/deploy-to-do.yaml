@@ -1,4 +1,5 @@
 on:
+  pull_request:
   push:
     branches:
       - main
@@ -20,6 +21,7 @@ jobs:
 
   build:
     needs: test
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout master
